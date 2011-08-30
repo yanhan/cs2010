@@ -63,7 +63,11 @@ int is_valid_input(char *str)
 	if (!*p)
 		return 0;
 
-	/* Only a number */
+	/* Chomp negative sign for negative number */
+	if (*p == '-' && p[1] && (p[1] >= '0' && p[1] <= '9'))
+		p++;
+
+	/* Number only */
 	if (*p >= '0' && *p <= '9') {
 		while (*p && *p >= '0' && *p <= '9')
 			p++;
@@ -100,7 +104,6 @@ int is_valid_input(char *str)
 				return 0;
 
 			p++;
-
 			cur_comp++;
 			stack[cur_comp] = 2;
 			stack[cur_comp-1]--;
@@ -108,6 +111,8 @@ int is_valid_input(char *str)
 
 		case '0': case '1': case '2': case '3': case '4':
 		case '5': case '6': case '7': case '8': case '9':
+
+parse_num: /* Label for negative number parsing */
 			while (*p && *p >= '0' && *p <= '9')
 				p++;
 
@@ -127,17 +132,23 @@ int is_valid_input(char *str)
 
 			break;
 
-		#ifdef someshit
 		case '-':
 			/* More tricky, may involve negative numbers */
 			if (p[1] && isspace(p[1])) {
+				/* Minus operator */
+				p++;
+				cur_comp++;
+				stack[cur_comp] = 2;
+				stack[cur_comp-1]--;
 			} else if (p[1] >= '0' && p[1] <= '9') {
+				p++;
+				goto parse_num;
 			} else {
 				/* Inval */
 				return 0;
 			}
+
 			break;
-		#endif
 
 		default:
 			return 0;
