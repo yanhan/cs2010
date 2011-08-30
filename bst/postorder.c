@@ -1,6 +1,81 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+
+/*
+ * A very basic parser for an RPN-like prefix notation that makes use of binary
+ * trees and to store computations and post order traversals for computation.
+ *
+ * The grammer is as follows:
+ *
+ * Computation
+ * -----------
+ *  Number
+ *  +  Computation Computation
+ *  -  Computation Computation
+ *  *  Computation Computation
+ *  /  Computation Computation
+ *
+ *
+ * ----------------
+ * Example
+ * ----------------
+ *
+ *  4                                        [Evaluates to 4]
+ *  + 4 2                                    [Evaluates to 6]
+ *  + * 4 3 2                                [Evaluates to 14]
+ *  + + 4 + 3 + 6 4 * 7 + -12 + 6 - 7 5      [Evaluates to -11]
+ *
+ *
+ * Explanation
+ *
+ * 4
+ * => As described in grammar, this is a valid computation. Evaluate to 4
+ *
+ *
+ * + 4 2
+ *
+ * Tree formed:
+ *
+ *    +
+ *   / \
+ *  4   2
+ *
+ * Result: 4 + 2 = 6
+ *
+ *
+ * + * 4 3 2
+ *
+ * Tree formed:
+ *
+ *     +
+ *    / \
+ *   *   2
+ *  / \
+ * 4   3
+ *
+ * Result: 4 * 3 + 2 = 12
+ *
+ *
+ * + + 4 + 3 + 6 4 * 7 + -12 + 6 - 7 5
+ *
+ * Tree formed:
+ *
+ *                      +
+ *              /             \
+ *             +               *
+ *            / \             / \
+ *           4   +           7   +
+ *              / \             / \
+ *             3   +          -12  +
+ *                / \             / \
+ *               6   4           6   -
+ *                                  / \
+ *                                 7   5
+ *
+ * Result: (4 + (3 + (6 + 4))) + (7 * (-12 + (6 + (7 - 5)))) = 17 + -28 = -11
+ */
 
 #define BUF_SZ 4096
 
@@ -15,11 +90,32 @@ enum op {
 struct node {
 	enum op op;
 	int result;
+	struct node *left;
+	struct node *right;
 };
 
 struct bst {
 	struct node *root;
 };
+
+struct opt {
+	int quiet;
+	int test;
+};
+
+void die(const char *msg)
+{
+	fprintf(stderr, msg);
+	exit(1);
+}
+
+void *xcalloc(size_t nmemb, size_t sz)
+{
+	void *ptr = calloc(nmemb, sz);
+	if (!ptr)
+		die("xcalloc failed\n");
+	return ptr;
+}
 
 char *strtrim(char *str)
 {
@@ -189,23 +285,219 @@ void test_parser(char *buf)
 	}
 }
 
+struct node *build_tree_real(char **str)
+{
+	if (!str || !*str)
+		return NULL;
+
+	char *p;
+	char *saved_ptr;
+	struct node *node;
+
+	p = *str;
+	saved_ptr = NULL;
+
+	while (*p && isspace(*p))
+		p++;
+
+	if (!*p)
+		return NULL;
+
+	node = xcalloc(1, sizeof(struct node));
+
+	switch (*p) {
+	case '0': case '1': case '2': case '3': case '4':
+	case '5': case '6': case '7': case '8': case '9':
+		node->op = OP_NUM;
+		node->result = strtol(p, &saved_ptr, 10);
+		node->left = NULL;
+		node->right = NULL;
+		p = saved_ptr;
+		break;
+	case '+':
+		node->op = OP_ADD;
+		p++;
+		node->left = build_tree_real(&p);
+		node->right = build_tree_real(&p);
+		break;
+	case '*':
+		node->op = OP_MUL;
+		p++;
+		node->left = build_tree_real(&p);
+		node->right = build_tree_real(&p);
+		break;
+	case '/':
+		node->op = OP_DIV;
+		p++;
+		node->left = build_tree_real(&p);
+		node->right = build_tree_real(&p);
+		break;
+	case '-':
+		if (p[1] && (p[1] >= '0' && p[1] <= '9')) {
+			node->op = OP_NUM;
+			node->result = strtol(p, &saved_ptr, 10);
+			node->left = NULL;
+			node->right = NULL;
+			p = saved_ptr;
+		} else {
+			node->op = OP_SUB;
+			p++;
+			node->left = build_tree_real(&p);
+			node->right = build_tree_real(&p);
+		}
+		break;
+	}
+
+	/* Update the pointer... */
+	*str = p;
+	return node;
+}
+
+struct bst *build_tree(const char *str)
+{
+	struct bst *bst = xcalloc(1, sizeof(struct bst));
+	char **ptr = (char **) &str;
+	bst->root = build_tree_real(ptr);
+	return bst;
+}
+
+void node_free(struct node *n)
+{
+	if (!n)
+		return;
+	node_free(n->left);
+	node_free(n->right);
+	free(n);
+}
+
+void bst_free(struct bst *bst)
+{
+	node_free(bst->root);
+	free(bst);
+}
+
+void node_print(struct node *n)
+{
+	if (!n)
+		return;
+
+	switch (n->op) {
+	case OP_NUM:
+		printf("%d\n", n->result);
+		return;
+	case OP_ADD:
+		printf("+\n");
+		break;
+	case OP_SUB:
+		printf("-\n");
+		break;
+	case OP_MUL:
+		printf("*\n");
+		break;
+	case OP_DIV:
+		printf("/\n");
+		break;
+	}
+
+	node_print(n->left);
+	node_print(n->right);
+}
+
+void bst_print(struct bst *bst)
+{
+	node_print(bst->root);
+}
+
+int bst_postorder_compute(struct node *n)
+{
+	/* Not supposed to happen */
+	if (!n)
+		return -1;
+
+	int ret = 0;
+
+	if (n->op == OP_NUM)
+		return 0;
+
+	ret = bst_postorder_compute(n->left);
+	if (ret)
+		return -1;
+
+	ret = bst_postorder_compute(n->right);
+	if (ret)
+		return -1;
+
+	switch (n->op) {
+	case OP_ADD:
+		n->result = n->left->result + n->right->result;
+		break;
+	case OP_SUB:
+		n->result = n->left->result - n->right->result;
+		break;
+	case OP_MUL:
+		n->result = n->left->result * n->right->result;
+		break;
+	case OP_DIV:
+		if (n->right->result == 0)
+			return -1;
+		n->result = n->left->result / n->right->result;
+		break;
+	}
+
+	return 0;
+}
+
+void bst_compute(struct bst *bst, int *result)
+{
+	if (!result)
+		printf("Pointer must be supplied to compute result\n");
+
+	int ret = bst_postorder_compute(bst->root);
+	if (ret)
+		printf("Error in computation\n");
+	else
+		*result = bst->root->result;
+}
+
+void parseargs(int argc, char *argv[], struct opt *opt)
+{
+	int i;
+	for (i = 1; i < argc; i++) {
+		if (!strcmp(argv[i], "--test")) {
+			opt->test = 1;
+		} else if (!strcmp(argv[i], "--quiet")) {
+			opt->quiet = 1;
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	char buf[BUF_SZ];
 	char *str;
 	int ret;
+	int result;
+	struct opt opt;
 
-	if (argc == 2 && !strcmp(argv[1], "--test")) {
+	/* Don't really feel like using gnu getopt for this... */
+	parseargs(argc, argv, &opt);
+
+	if (opt.test)
 		test_parser(buf);
-		return 0;
-	}
 
 	while (fgets(buf, BUF_SZ, stdin)) {
 		str = strtrim(buf);
 		ret = is_valid_input(str);
-		if (ret)
-			printf("input is valid\n");
-		else
+		if (ret) {
+			struct bst *bst = build_tree(str);
+			bst_compute(bst, &result);
+
+			if (opt.quiet)
+				printf("%d\n", result);
+			else
+				printf("result of \"%s\" is %d\n", str, result);
+			bst_free(bst);
+		} else
 			printf("input is invalid\n");
 	}
 

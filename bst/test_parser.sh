@@ -12,4 +12,9 @@ test_expect_success "parsing with negative signs" '
 	test_cmp actual t02_expect
 '
 
+test_expect_success "computations" '
+	./postorder --quiet <t03_compute >actual &&
+	test_cmp actual t03_expect
+'
+
 test_cleanup
