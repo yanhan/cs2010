@@ -121,6 +121,7 @@ public class BST {
 
 		Node parent;
 		Node cur;
+		int curKey;
 		DIRECTION dir;
 		Stack<Node> st;
 		Stack<DIRECTION> direction;
@@ -133,12 +134,13 @@ public class BST {
 
 		while (cur != null) {
 			parent = cur;
+			curKey = cur.getKey();
 			st.push(parent);
-			if (key < cur.getKey()) {
+			if (key < curKey) {
 				cur = cur.getLeft();
 				dir = DIRECTION.LEFT;
 				direction.push(DIRECTION.LEFT);
-			} else if (key == cur.getKey()) {
+			} else if (key == curKey) {
 				return;
 			} else {
 				cur = cur.getRight();
