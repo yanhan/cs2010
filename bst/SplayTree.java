@@ -142,8 +142,19 @@ public class SplayTree {
 		else
 			parent.setRight(cur);
 
-		st.push(cur);
-		dirs.push(curDir);
+		root = splayRotate(cur, curDir, st, dirs);
+	}
+
+	private Node splayRotate(Node newRoot, DIRECTION newRootDir, Stack<Node> st,
+							 Stack<DIRECTION> dirs) {
+		assert(newRoot != null);
+		Node cur = newRoot;;
+		Node parent;
+		DIRECTION curDir;
+		DIRECTION parentDir;
+
+		st.push(newRoot);
+		dirs.push(newRootDir);
 
 		/* Hacks to splay the node up to root... */
 		while (!st.isEmpty()) {
@@ -151,54 +162,7 @@ public class SplayTree {
 			curDir = dirs.pop();
 
 			if (st.size() >= 2) {
-				parent = st.pop();
-				grandparent = st.pop();
-				parentDir = dirs.pop();
-				grandparentDir = dirs.pop();
-
-				if (parentDir == grandparentDir) {
-					/* Zig-Zig rotation */
-					if (parentDir == DIRECTION.LEFT) {
-						grandparent.rotateRight();
-						cur = parent.rotateRight();
-					} else {
-						grandparent.rotateLeft();
-						cur = parent.rotateLeft();
-					}
-				} else {
-					/* Zig-Zag rotation */
-					if (parentDir == DIRECTION.LEFT)
-						cur = parent.rotateRight();
-					else
-						cur = parent.rotateLeft();
-
-					if (grandparentDir == DIRECTION.LEFT) {
-						grandparent.setLeft(cur);
-						cur = grandparent.rotateRight();
-					} else {
-						grandparent.setRight(cur);
-						cur = grandparent.rotateLeft();
-					}
-				}
-
-				if (!st.isEmpty()) {
-					Node ggp = st.peek();
-					DIRECTION ggpdir = dirs.peek();
-
-					if (ggpdir == DIRECTION.LEFT)
-						ggp.setLeft(cur);
-					else
-						ggp.setRight(cur);
-				}
-
-				/*
-				 * Handle case where we pop off great grandparent the
-				 * next iteration of the loop if st.size() == 1, so that
-				 * we can rotate the new node to the root.
-				 */
-				st.push(cur);
-				dirs.push(curDir);
-
+				cur = zigzag(curDir, st, dirs);
 			} else if (st.size() == 1) {
 				/* Zig rotation */
 				parent = st.pop();
@@ -213,7 +177,65 @@ public class SplayTree {
 			}
 		}
 
-		root = cur;
+		return cur;
+	}
+
+	private Node zigzag(DIRECTION curDir, Stack<Node> st, Stack<DIRECTION> dirs) {
+		Node cur;
+		Node parent;
+		Node grandparent;
+
+		DIRECTION parentDir;
+		DIRECTION grandparentDir;
+
+		parent = st.pop();
+		grandparent = st.pop();
+		parentDir = dirs.pop();
+		grandparentDir = dirs.pop();
+
+		if (parentDir == grandparentDir) {
+			/* Zig-Zig rotation */
+			if (parentDir == DIRECTION.LEFT) {
+				grandparent.rotateRight();
+				cur = parent.rotateRight();
+			} else {
+				grandparent.rotateLeft();
+				cur = parent.rotateLeft();
+			}
+		} else {
+			/* Zig-Zag rotation */
+			if (parentDir == DIRECTION.LEFT)
+				cur = parent.rotateRight();
+			else
+				cur = parent.rotateLeft();
+
+			if (grandparentDir == DIRECTION.LEFT) {
+				grandparent.setLeft(cur);
+				cur = grandparent.rotateRight();
+			} else {
+				grandparent.setRight(cur);
+				cur = grandparent.rotateLeft();
+			}
+		}
+
+		if (!st.isEmpty()) {
+			Node ggp = st.peek();
+			DIRECTION ggpdir = dirs.peek();
+
+			if (ggpdir == DIRECTION.LEFT)
+				ggp.setLeft(cur);
+			else
+				ggp.setRight(cur);
+		}
+
+		/*
+		 * Handle case where we pop off great grandparent the
+		 * next iteration of the loop if st.size() == 1, so that
+		 * we can rotate the new node to the root.
+		 */
+		st.push(cur);
+		dirs.push(curDir);
+		return cur;
 	}
 
 	public void printInner(Node n) {
