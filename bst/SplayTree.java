@@ -192,9 +192,9 @@ public class SplayTree {
 				}
 
 				/*
-				 * Handle case where we pop off great grand parent if
-				 * st.size() == 1, so that we can rotate this new node
-				 * to the root.
+				 * Handle case where we pop off great grandparent the
+				 * next iteration of the loop if st.size() == 1, so that
+				 * we can rotate the new node to the root.
 				 */
 				st.push(cur);
 				dirs.push(curDir);
