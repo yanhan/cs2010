@@ -142,10 +142,10 @@ public class SplayTree {
 		else
 			parent.setRight(cur);
 
-		root = splayRotate(cur, curDir, st, dirs);
+		root = splayRotate(cur, st, dirs);
 	}
 
-	private Node splayRotate(Node newRoot, DIRECTION newRootDir, Stack<Node> st,
+	private Node splayRotate(Node newRoot, Stack<Node> st,
 							 Stack<DIRECTION> dirs) {
 		assert(newRoot != null);
 		Node cur = newRoot;;
@@ -154,11 +154,13 @@ public class SplayTree {
 		DIRECTION parentDir;
 
 		st.push(newRoot);
-		dirs.push(newRootDir);
 
 		/* Hacks to splay the node up to root... */
 		while (!st.isEmpty()) {
 			cur = st.pop();
+			if (st.isEmpty())
+				break;
+
 			curDir = dirs.pop();
 
 			if (st.size() >= 2) {
@@ -166,14 +168,10 @@ public class SplayTree {
 			} else if (st.size() == 1) {
 				/* Zig rotation */
 				parent = st.pop();
-				parentDir = dirs.pop();
-
-				if (parentDir == DIRECTION.LEFT)
+				if (curDir == DIRECTION.LEFT)
 					cur = parent.rotateRight();
 				else
 					cur = parent.rotateLeft();
-			} else {
-				/* Nothing */
 			}
 		}
 
@@ -184,16 +182,13 @@ public class SplayTree {
 		Node cur;
 		Node parent;
 		Node grandparent;
-
 		DIRECTION parentDir;
-		DIRECTION grandparentDir;
 
 		parent = st.pop();
 		grandparent = st.pop();
 		parentDir = dirs.pop();
-		grandparentDir = dirs.pop();
 
-		if (parentDir == grandparentDir) {
+		if (curDir == parentDir) {
 			/* Zig-Zig rotation */
 			if (parentDir == DIRECTION.LEFT) {
 				grandparent.rotateRight();
@@ -204,12 +199,12 @@ public class SplayTree {
 			}
 		} else {
 			/* Zig-Zag rotation */
-			if (parentDir == DIRECTION.LEFT)
+			if (curDir == DIRECTION.LEFT)
 				cur = parent.rotateRight();
 			else
 				cur = parent.rotateLeft();
 
-			if (grandparentDir == DIRECTION.LEFT) {
+			if (parentDir == DIRECTION.LEFT) {
 				grandparent.setLeft(cur);
 				cur = grandparent.rotateRight();
 			} else {
@@ -219,22 +214,25 @@ public class SplayTree {
 		}
 
 		if (!st.isEmpty()) {
-			Node ggp = st.peek();
-			DIRECTION ggpdir = dirs.peek();
+			Node gp = st.peek();
+			DIRECTION gpdir = dirs.peek();
 
-			if (ggpdir == DIRECTION.LEFT)
-				ggp.setLeft(cur);
+			if (gpdir == DIRECTION.LEFT)
+				gp.setLeft(cur);
 			else
-				ggp.setRight(cur);
+				gp.setRight(cur);
 		}
 
 		/*
 		 * Handle case where we pop off great grandparent the
-		 * next iteration of the loop if st.size() == 1, so that
-		 * we can rotate the new node to the root.
+		 * next iteration of the loop if st.size() == 1.
+		 *
+		 * Current node is child of great grandparent, but if
+		 * great grandparent is the only node left on the stack,
+		 * the current node will not be rotated to the root.
+		 * Push current node onto the stack.
 		 */
 		st.push(cur);
-		dirs.push(curDir);
 		return cur;
 	}
 
