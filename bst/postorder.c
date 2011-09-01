@@ -447,16 +447,15 @@ int bst_postorder_compute(struct node *n)
 	return 0;
 }
 
-void bst_compute(struct bst *bst, int *result)
+int bst_compute(struct bst *bst, int *result)
 {
 	if (!result)
 		printf("Pointer must be supplied to compute result\n");
 
 	int ret = bst_postorder_compute(bst->root);
-	if (ret)
-		printf("Error in computation\n");
-	else
+	if (!ret)
 		*result = bst->root->result;
+	return ret;
 }
 
 void parseargs(int argc, char *argv[], struct opt *opt)
@@ -490,12 +489,17 @@ int main(int argc, char *argv[])
 		ret = is_valid_input(str);
 		if (ret) {
 			struct bst *bst = build_tree(str);
-			bst_compute(bst, &result);
+			ret = bst_compute(bst, &result);
 
-			if (opt.quiet)
-				printf("%d\n", result);
-			else
-				printf("result of \"%s\" is %d\n", str, result);
+			if (ret) {
+				printf("Error in computation\n");
+			} else {
+				if (opt.quiet)
+					printf("%d\n", result);
+				else
+					printf("result of \"%s\" is %d\n", str, result);
+			}
+
 			bst_free(bst);
 		} else
 			printf("input is invalid\n");
