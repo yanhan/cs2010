@@ -1,0 +1,105 @@
+WHO AM I
+--------------------------------------------------------------------------------
+
+My name is Pang Yan Han. I am currently (September 2011) a second year
+undergraduate at the National University of Singapore. I am a Computer Science
+major specializing in Algorithms.
+
+
+WHAT IS THIS REPOSITORY + BACKGROUND
+--------------------------------------------------------------------------------
+
+This repository contains code and slides of my own creation for an
+undergraduate module "CS2010 - Data Structures and Algorithms II", conducted at
+the National University of Singapore in Academic Year 2011/2012, Semester 1,
+where I was a lab TA.
+
+Lab sessions take up 1 hour per week and are more of a "mini lecture" style than
+"get your hands dirty" style.
+
+
+RATIONALE
+--------------------------------------------------------------------------------
+
+Taking into account the average results of the cohort taking the module, lab
+sessions have to cover a select subset of the Java API used to solve the weekly
+Problem Sets for the module.
+
+However, I was unsatisfied doing that. I thought that the Java API was very
+well documented, and did not require the full 1 hour lab to cover. Spending the
+entire session covering the Java API may also douse the students' interest in
+algorithms.
+
+The recent news (as of late August 2011 to early September 2011) that the
+School of Computing's premiere introductory programming module -
+"CS1101S - Programming Methodology" - would be switching from using Scheme as a
+teaching language to JavaScript from next year onwards - devastated me. 
+
+I was seeing the soul of Computer Science being ripped out, as curriculums are
+being dumbed down. Instead of having to go through concepts in SICP using
+Scheme, people are using Python / Java which are arguably, not as good teaching
+languages as Scheme. Instead of implementing data structures and algorithms in C
+where one has to deal with pointers and is bound to get segmentation faults,
+it's now done in Java, a language which does not have the concept of a pointer.
+
+And right now, the same thing is happening right in front of my eyes.
+
+And the worst part was that there was nothing I could do about it.
+
+But I could do something about CS2010. I set out to cover extra things in the
+lab session on top of what I was supposed to cover for the Java API part, which
+led to the creation of this repository.
+
+This was done with the approval of my Professor, Dr. Steven Halim. He kindly
+accepted me and my colleague's (Shubham Goyal) proposal to cover extended
+material during the weekly lab sessions.
+
+
+SO WHAT'S IN HERE
+--------------------------------------------------------------------------------
+
+As stated above, slides + code of what I cover in lab sessions
+
+Many students specifically request more code for algorithms covered in the
+module. So here they are!
+
+
+RECEPTION
+--------------------------------------------------------------------------------
+
+I received a lukewarm response to this extended material coverage during labs.
+Maybe students do not like to show their emotions? Nevertheless, I have learnt
+a lot preparing the code (especially) and slides for each lab session.
+
+
+COPYING
+--------------------------------------------------------------------------------
+
+This repository's code and slides are released under the MIT License.
+See the COPYING file for more details.
+
+
+HOPE FOR THE FUTURE
+--------------------------------------------------------------------------------
+
+Perhaps future tutors from CS1020, CS2010 and CS2020 can draw inspiration from
+the content here. You are welcome to make use of the materials in this
+repository in whatever way you want.
+
+With regards to code, I will ensure a certain level of correctness and
+readability.
+
+However, understanding the code is your job.
+
+
+CREDITS
+--------------------------------------------------------------------------------
+
+I would like to thank my Professor, Dr. Steven Halim, for granting me the
+permission to cover extended material during lab sessions. He has been a very
+supportive mentor and inspired me to learn more about algorithms through the
+creative use of UVa problems in CS2020, a similar algorithms module I took.
+
+I would also like to thank my colleague, Shubham Goyal, who has been a great
+help and friend to me. Without a colleague with similar motivations, I would
+probably have less conviction in pushing this through.
