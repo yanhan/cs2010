@@ -236,6 +236,53 @@ public class SplayTree {
 		return cur;
 	}
 
+	/* Returns 1 if key is in tree, 0 otherwise */
+	public int search(int k) {
+		if (root == null)
+			return 0;
+
+		Node parent;
+		Node cur;
+		DIRECTION curDir;
+		DIRECTION parentDir;
+		int curKey;
+
+		curDir = DIRECTION.LEFT; /* Silence compiler */
+		Stack<Node> st = new Stack<Node>();
+		Stack<DIRECTION> dirs = new Stack<DIRECTION>();
+
+		cur = root;
+		while (cur != null) {
+			parent = cur;
+			curKey = cur.getKey();
+
+			if (k < curKey) {
+				cur = cur.getLeft();
+				curDir = DIRECTION.LEFT;
+				dirs.push(curDir);
+			} else if (k == curKey) {
+				/* Need to splay node up to root! */
+				break;
+			} else {
+				cur = cur.getRight();
+				curDir = DIRECTION.RIGHT;
+				dirs.push(curDir);
+			}
+
+			/*
+			 * Only push parent here since we can accidentally
+			 * push current node when it's a search hit.
+			 */
+			st.push(parent);
+		}
+
+		if (cur == null)
+			return 0;
+
+		root = splayRotate(cur, st, dirs);
+		return 1;
+	}
+
 	public void printInner(Node n) {
 		if (n == null)
 			return;
@@ -265,7 +312,7 @@ public class SplayTree {
 		printInner(root);
 	}
 
-	public static void main(String args[]) {
+	public static int sptTest() {
 		/* Only test
 		 *
 		 * Insert the following keys:
@@ -283,5 +330,52 @@ public class SplayTree {
 		 *        \
 		 *         7
 		 */
+		SplayTree spt = new SplayTree();
+		spt.insert(13);
+		spt.insert(7);
+		spt.insert(3);
+		spt.insert(56);
+		spt.insert(9);
+		spt.insert(58);
+		spt.insert(162);
+		spt.insert(33);
+		System.out.println("\nTree:");
+		spt.print();
+
+		/* Searching for 7 should turn the tree into:
+		 *
+		 *           7
+		 *         /   \
+		 *        3     13
+		 *             /  \
+		 *            9   33
+		 *                  \
+		 *                  162
+		 *                  /
+		 *                 56
+		 *                  \
+		 *                  58
+		 */
+		int error, ret;
+		error = 0;
+
+		ret = spt.search(7);
+		error += ret == 1 ? 0 : 1;
+
+		System.out.println("\nTree:");
+		spt.print();
+
+		ret = spt.search(-3);
+		error += ret == 1? 1 : 0;
+
+		return error;
+	}
+
+	public static void main(String args[]) {
+		int ret = sptTest();
+		if (ret > 0)
+			System.out.println("Test Search failed");
+		else
+			System.out.println("Test Search passed");
 	}
 }
