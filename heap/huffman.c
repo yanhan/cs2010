@@ -60,6 +60,20 @@ void node_free(struct node *n)
 	free(n);
 }
 
+void node_print(struct node *n)
+{
+	if (!n)
+		return;
+
+	if (n->left && n->right) {
+		printf("internal node, freq: %d\n", n->freq);
+		node_print(n->left);
+		node_print(n->right);
+	} else {
+		printf("char %c, freq %d\n", n->ch, n->freq);
+	}
+}
+
 #define PARENT(nn) (((nn) % 2 == 0) ? ((nn) - 1) / 2 : (nn) / 2)
 #define LEFTCHILD(nn) (2 * (nn) + 1)
 #define RIGHTCHILD(nn) (2 * (nn) + 2)
@@ -252,11 +266,24 @@ int prepare_header(char *hdr, int *hdr_nr, int *hdr_alloc, struct node **heap,
 	return 0;
 }
 
-void build_prefix_tree(struct node **heap, int *heap_nr)
+void build_prefix_tree(struct node **heap, int *heap_nr, int heap_sz)
 {
 	assert(heap_nr != NULL);
 	int nr = *heap_nr;
+	struct node *first, *second;
 
+	while (nr > 1) {
+		struct node *p;
+		heap_remove(heap, &nr, &first);
+		heap_remove(heap, &nr, &second);
+
+		p = node_new(0, first->freq + second->freq);
+		p->left = first;
+		p->right = second;
+		heap_insert(heap, p, &nr, heap_sz);
+	}
+
+	*heap_nr = 1;
 }
 
 void huffman_encode(int *freq, int range, struct node **heap,
@@ -292,7 +319,7 @@ void huffman_encode(int *freq, int range, struct node **heap,
 		goto cleanup;
 
 	/* Time for the fun: Build prefix tree */
-	build_prefix_tree(heap, &heap_nr);
+	build_prefix_tree(heap, &heap_nr, heap_sz);
 
 	/* Actually write out the header */
 	fp = fopen("header", "w");
