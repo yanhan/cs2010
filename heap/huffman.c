@@ -94,6 +94,7 @@ void heap_sink(struct node **heap, int idx, int nr)
 	int rightc_idx;
 
 	int stop = nr / 2;
+	orig = heap[idx];
 	while (idx <= stop) {
 		best = orig;
 		best_idx = idx;
