@@ -35,6 +35,14 @@ void *xrealloc(void *ptr, size_t sz)
 	return ptr;
 }
 
+char *xstrdup(const char *s)
+{
+	char *p = strdup(s);
+	if (!p)
+		die("xstrdup failed\n");
+	return p;
+}
+
 struct node {
 	char ch;
 	int freq;
@@ -277,7 +285,8 @@ void build_prefix_tree(struct node **heap, int *heap_nr, int heap_sz)
 		heap_remove(heap, &nr, &first);
 		heap_remove(heap, &nr, &second);
 
-		p = node_new(0, first->freq + second->freq);
+		/* Internal nodes have character of -1 */
+		p = node_new(-1, first->freq + second->freq);
 		p->left = first;
 		p->right = second;
 		heap_insert(heap, p, &nr, heap_sz);
@@ -286,11 +295,57 @@ void build_prefix_tree(struct node **heap, int *heap_nr, int heap_sz)
 	*heap_nr = 1;
 }
 
-void huffman_encode(int *freq, int range, struct node **heap,
-		int heap_sz)
+/* dir: left is 0, right is 1 */
+void build_prefixes(char **prefix, struct node *n, char *buf, int buf_idx,
+		int dir)
 {
-	assert(range <= heap_sz);
+	if (!n) {
+		fprintf(stderr, "build_prefixes: null tree node\n");
+		return;
+	}
+
+	buf[buf_idx++] = dir == 0 ? '0' : '1';
+	if (n->ch != -1) {
+		buf[buf_idx] = '\0';
+		/* 1st char is a dummy */
+		prefix[n->ch] = xstrdup(buf + 1);
+	} else {
+		build_prefixes(prefix, n->left, buf, buf_idx, 0);
+		build_prefixes(prefix, n->right, buf, buf_idx, 1);
+	}
+}
+
+void get_prefix_strings(char **prefix, struct node *prefix_tree)
+{
+	char buf[BUFSZ];
+	build_prefixes(prefix, prefix_tree, buf, 0, 0);
+}
+
+int prepare_content(char *content, int *content_nr, int *content_alloc,
+		struct node *prefix_tree, FILE *infp)
+{
+	if (fseek(infp, 0L, SEEK_SET)) {
+		fprintf(stderr, "could not rewind input file\n");
+		return -1;
+	}
+
+	/* Time to replace by prefix string... */
+	char *prefix[MAXCHARS];
+	memset(prefix, 0, sizeof(prefix));
+	get_prefix_strings(prefix, prefix_tree);
+
+	for (i = 0; i < MAXCHARS; i++) {
+		if (prefix[i])
+			free(prefix[i]);
+	}
+}
+
+void huffman_encode(int *freq, int range, struct node **heap,
+		int heap_sz, FILE *infp)
+{
+	assert(range <= heap_sz && infp != NULL);
 	int i;
+	int ret;
 	int heap_nr;
 	FILE *fp;
 	char ch;
@@ -298,7 +353,8 @@ void huffman_encode(int *freq, int range, struct node **heap,
 	char *hdr;
 	int hdr_alloc, hdr_nr;
 
-	int ret;
+	char *content;
+	int content_alloc, content_nr;
 
 	heap_nr = 0;
 	for (i = 0; i < range; i++) {
@@ -318,8 +374,16 @@ void huffman_encode(int *freq, int range, struct node **heap,
 	if (ret)
 		goto cleanup;
 
-	/* Time for the fun: Build prefix tree */
+	/* Time for the fun: Build prefix tree and compress */
 	build_prefix_tree(heap, &heap_nr, heap_sz);
+
+	content_alloc = BUFSZ;
+	content_nr = 0;
+	content = xcalloc(content_alloc, sizeof(char));
+
+	ret = prepare_content(content, &content_nr, &content_alloc, heap[0], infp);
+	if (ret)
+		goto cleanup;
 
 	/* Actually write out the header */
 	fp = fopen("header", "w");
@@ -329,10 +393,13 @@ void huffman_encode(int *freq, int range, struct node **heap,
 	if (fwrite(hdr, hdr_nr, 1, fp) != 1)
 		fprintf(stderr, "error writing out header\n");
 
+	/* Write content... */
+
 cleanup:
 	if (fp)
 		fclose(fp);
 	free(hdr);
+	free(content);
 	heap_free(heap, heap_nr);
 }
 
@@ -357,10 +424,9 @@ void encode_file(const char *file)
 			freq[buf[i]]++;
 	}
 
-	fclose(fp);
-
 	memset(heap, 0, sizeof(struct node *) * MAXCHARS);
-	huffman_encode(freq, MAXCHARS, heap, MAXCHARS);
+	huffman_encode(freq, MAXCHARS, heap, MAXCHARS, fp);
+	fclose(fp);
 }
 
 void decode_file(const char *file)
