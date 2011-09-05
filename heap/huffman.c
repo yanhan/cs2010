@@ -73,7 +73,7 @@ void heap_swim(struct node **heap, int idx)
 	while (idx > 0) {
 		parent_idx = PARENT(idx);
 		parent = heap[parent_idx];
-		if (parent->freq > orig->freq)
+		if (parent->freq < orig->freq)
 			break;
 
 		heap[idx] = parent;
@@ -105,7 +105,7 @@ void heap_sink(struct node **heap, int idx, int nr)
 			goto compare_done;
 
 		leftc = heap[leftc_idx];
-		if (leftc->freq > best->freq) {
+		if (leftc->freq < best->freq) {
 			best = leftc;
 			best_idx = leftc_idx;
 		}
@@ -114,7 +114,7 @@ void heap_sink(struct node **heap, int idx, int nr)
 			goto compare_done;
 
 		rightc = heap[rightc_idx];
-		if (rightc->freq > best->freq) {
+		if (rightc->freq < best->freq) {
 			best = rightc;
 			best_idx = rightc_idx;
 		}
@@ -251,7 +251,7 @@ int prepare_header(char *hdr, int *hdr_nr, int *hdr_alloc, struct node **heap,
 	return 0;
 }
 
-void build_prefix_tree(struct heap **heap, int *heap_nr)
+void build_prefix_tree(struct node **heap, int *heap_nr)
 {
 	assert(heap_nr != NULL);
 	int nr = *heap_nr;
