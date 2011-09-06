@@ -8,6 +8,8 @@
 #define MAXCHARS 264
 #define SP_EOF 258
 
+#define COMPRESSED_OUT "compressed"
+
 void die(const char *msg)
 {
 	fprintf(stderr, msg);
@@ -322,13 +324,8 @@ void get_prefix_strings(char **prefix, struct node *prefix_tree)
 }
 
 void write_content(unsigned char *content, int content_alloc,
-		struct node *prefix_tree, FILE *infp)
+		struct node *prefix_tree, FILE *infp, FILE *outfp)
 {
-	if (fseek(infp, 0L, SEEK_SET)) {
-		fprintf(stderr, "could not rewind input file\n");
-		return;
-	}
-
 	/* Time to replace by prefix string... */
 	int i, k, n;
 	int byte_idx;
@@ -337,11 +334,6 @@ void write_content(unsigned char *content, int content_alloc,
 	unsigned char ch;
 	char *cur_prefix;
 	char *prefix[MAXCHARS];
-	FILE *outfp;
-
-	outfp = fopen("compressed", "w");
-	if (!outfp)
-		return;
 
 	memset(prefix, 0, sizeof(prefix));
 	get_prefix_strings(prefix, prefix_tree);
@@ -427,8 +419,6 @@ cleanup:
 		if (prefix[i])
 			free(prefix[i]);
 	}
-
-	fclose(outfp);
 }
 
 void huffman_encode(int *freq, int range, struct node **heap,
@@ -438,7 +428,7 @@ void huffman_encode(int *freq, int range, struct node **heap,
 	int i;
 	int ret;
 	int heap_nr;
-	FILE *fp;
+	FILE *outfp;
 	char ch;
 
 	char *hdr;
@@ -479,20 +469,20 @@ void huffman_encode(int *freq, int range, struct node **heap,
 		goto cleanup;
 
 	/* Actually write out the header */
-	fp = fopen("header", "w");
-	if (!fp)
+	outfp = fopen(COMPRESSED_OUT, "w");
+	if (!outfp)
 		goto cleanup;
 
-	if (fwrite(hdr, hdr_nr, 1, fp) != 1)
+	if (fwrite(hdr, hdr_nr, 1, outfp) != 1)
 		fprintf(stderr, "error writing out header\n");
 
 	/* Time for the fun: Build prefix tree and compress */
 	build_prefix_tree(heap, &heap_nr, heap_sz);
-	write_content(content, BUFSZ, heap[0], fp);
+	write_content(content, BUFSZ, heap[0], infp, outfp);
 
 cleanup:
-	if (fp)
-		fclose(fp);
+	if (outfp)
+		fclose(outfp);
 	free(hdr);
 	heap_free(heap, heap_nr);
 }
