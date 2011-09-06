@@ -9,6 +9,7 @@
 #define SP_EOF 258
 
 #define COMPRESSED_OUT "compressed"
+#define HUFFMAN_HEADER 0xdddddddd
 
 void die(const char *msg)
 {
@@ -228,10 +229,11 @@ int prepare_header(char *hdr, int *hdr_nr, int *hdr_alloc, struct node **heap,
 	int alloc = *hdr_alloc;
 	int nr = *hdr_nr;
 	int i;
+	int ch;
 
-	/* First, write out HHHH */
-	buf[0] = buf[1] = buf[2] = buf[3] = 'H';
-	if (write_to_header(hdr, hdr_nr, hdr_alloc, buf, 4)) {
+	/* First, write out magic number */
+	ch = HUFFMAN_HEADER;
+	if (write_to_header(hdr, hdr_nr, hdr_alloc, &ch, 4)) {
 		fprintf(stderr, "writing of opening header failed\n");
 		return -1;
 	}
@@ -266,9 +268,9 @@ int prepare_header(char *hdr, int *hdr_nr, int *hdr_alloc, struct node **heap,
 		}
 	}
 
-	/* Then write HHHH */
-	buf[0] = buf[1] = buf[2] = buf[3] = 'H';
-	if (write_to_header(hdr, hdr_nr, hdr_alloc, buf, 4)) {
+	/* Then write ending header (magic number) */
+	ch = HUFFMAN_HEADER;
+	if (write_to_header(hdr, hdr_nr, hdr_alloc, &ch, 4)) {
 		fprintf(stderr, "writing of closing header failed\n");
 		return -1;
 	}
@@ -521,21 +523,22 @@ void decode_file(const char *file)
 
 	struct node *heap[MAXCHARS];
 	int nr = 0;
+	int ch = 0;
+	int freq = 0;
 
 	memset(heap, 0, sizeof(heap));
 	fp = fopen(file, "r");
 	if (!fp)
 		die("cannot open file for decoding\n");
 
-	bread = fread(buf, 1, 4, fp);
-	if (bread != 4) {
+	bread = fread(&ch, 4, 1, fp);
+	if (bread != 1) {
 		fprintf(stderr, "invalid header: start\n");
 		goto cleanup;
 	}
 
-	if (buf[0] != 'H' || buf[1] != 'H' || buf[2] != 'H' || buf[3] != 'H') {
-		fprintf(stderr, "invalid opening header \"%c%c%c%c\"\n",
-				buf[0], buf[1], buf[2], buf[3]);
+	if (ch != HUFFMAN_HEADER) {
+		fprintf(stderr, "invalid opening header \"%x\"\n", ch);
 		goto cleanup;
 	}
 
@@ -544,18 +547,17 @@ void decode_file(const char *file)
 		int freq;
 		struct node *node;
 
-		bread = fread(buf, 1, 4, fp);
-		if (bread != 4) {
+		bread = fread(&ch, 4, 1, fp);
+		if (bread != 1) {
 			fprintf(stderr, "invalid header\n");
 			goto cleanup;
 		}
 
 		/* Closing header */
-		if (buf[0] == 'H' && buf[1] == 'H' && buf[2] == 'H' && buf[3] == 'H')
+		if (ch == HUFFMAN_HEADER)
 			break;
 
 		/* Letter Frequency pair */
-		ch = (buf[3] << 3) + (buf[2] << 2) + (buf[1] << 1) + buf[0];
 		bread = fread(&freq, 4, 1, fp);
 		if (bread != 1) {
 			fprintf(stderr, "invalid header\n");
