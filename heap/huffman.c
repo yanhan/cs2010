@@ -284,13 +284,6 @@ int prepare_header(char *hdr, int *hdr_nr, int *hdr_alloc, struct node **heap,
 			return -1;
 		}
 
-		/*int k;
-		buf[0] = buf[1] = buf[2] = '\0';
-		if (write_to_header(hdr, hdr_nr, hdr_alloc, buf, 3)) {
-			fprintf(stderr, "writing of heap failed (padding)\n");
-			return -1;
-		}*/
-
 		if (write_to_header(hdr, hdr_nr, hdr_alloc, &(heap[i]->freq), 4)) {
 			fprintf(stderr, "writing of heap failed (int)\n");
 			return -1;
