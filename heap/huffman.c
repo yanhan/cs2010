@@ -552,6 +552,8 @@ void decode_file(const char *file)
 	int ch = 0;
 	int freq = 0;
 
+	char *prefix[MAXCHARS];
+
 	memset(heap, 0, sizeof(heap));
 	fp = fopen(file, "r");
 	if (!fp)
@@ -595,6 +597,13 @@ void decode_file(const char *file)
 	}
 
 	header_print(heap, nr);
+	build_prefix_tree(heap, &nr, MAXCHARS);
+
+	memset(prefix, 0, sizeof(prefix));
+	get_prefix_strings(prefix, heap[0]);
+
+	/* Print the prefix strings */
+	prefix_print(prefix, MAXCHARS);
 
 cleanup:
 	fclose(fp);
