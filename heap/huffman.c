@@ -586,7 +586,8 @@ void decode_file(const char *file)
 		}
 
 		node = node_new(ch, freq);
-		heap_insert(heap, node, &nr, MAXCHARS);
+		/* Bypass insertion procedure since we wrote out in heap order */
+		heap[nr++] = node;
 	}
 
 	header_print(heap, nr);
