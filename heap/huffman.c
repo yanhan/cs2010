@@ -548,6 +548,7 @@ void decode_file(const char *file)
 	size_t bread;
 
 	struct node *heap[MAXCHARS];
+	int i;
 	int nr = 0;
 	int ch = 0;
 	int freq = 0;
@@ -606,6 +607,10 @@ void decode_file(const char *file)
 	prefix_print(prefix, MAXCHARS);
 
 cleanup:
+	for (i = 0; i < MAXCHARS; i++) {
+		if (prefix[i])
+			free(prefix[i]);
+	}
 	fclose(fp);
 	heap_free(heap, nr);
 }
