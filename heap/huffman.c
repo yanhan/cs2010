@@ -194,6 +194,20 @@ void heap_free(struct node **heap, int nr)
 		node_free(heap[i]);
 }
 
+void header_print(struct node **heap, int nr)
+{
+	/* Print header info */
+	int i;
+	for (i = 0; i < nr; i++) {
+		printf("char = %d (", heap[i]->ch);
+		if (heap[i]->ch > 127)
+			printf("not viewable");
+		else
+			printf("%c", heap[i]->ch);
+		printf("), freq = %d\n", heap[i]->freq);
+	}
+}
+
 int write_to_header(char *hdr, int *hdr_nr, int *hdr_alloc,
 		void *buf, int sz)
 {
@@ -452,14 +466,8 @@ void huffman_encode(int *freq, int range, struct node **heap,
 	node = node_new(SP_EOF, 1);
 	heap_insert(heap, node, &heap_nr, heap_sz);
 
-	for (i = 0; i < heap_nr; i++) {
-		printf("char = %d (", heap[i]->ch);
-		if (heap[i]->ch > 127)
-			printf("%s", "not viewable");
-		else
-			printf("%c", heap[i]->ch);
-		printf("), freq = %d\n", heap[i]->freq);
-	}
+	/* Debug: print header */
+	header_print(heap, heap_nr);
 
 	/* Allocate header for write out later */
 	hdr_alloc = BUFSZ;
@@ -568,16 +576,7 @@ void decode_file(const char *file)
 		heap_insert(heap, node, &nr, MAXCHARS);
 	}
 
-	/* Print header info */
-	int i;
-	for (i = 0; i < nr; i++) {
-		printf("char = %d (", heap[i]->ch);
-		if (heap[i]->ch > 127)
-			printf("cant show");
-		else
-			printf("%c", heap[i]->ch);
-		printf("), freq = %d\n", heap[i]->freq);
-	}
+	header_print(heap, nr);
 
 cleanup:
 	fclose(fp);
