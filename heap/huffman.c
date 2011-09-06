@@ -465,6 +465,9 @@ void huffman_encode(int *freq, int range, struct node **heap,
 	struct node *node;
 
 	heap_nr = 0;
+
+	/* Insert SP EOF */
+	freq[SP_EOF] = 1;
 	for (i = 0; i < range; i++) {
 		if (!freq[i])
 			continue;
@@ -472,10 +475,6 @@ void huffman_encode(int *freq, int range, struct node **heap,
 		node = node_new(i, freq[i]);
 		heap_insert(heap, node, &heap_nr, heap_sz);
 	}
-
-	/* Insert special EOF string into heap */
-	node = node_new(SP_EOF, 1);
-	heap_insert(heap, node, &heap_nr, heap_sz);
 
 	/* Debug: print header */
 	header_print(heap, heap_nr);
