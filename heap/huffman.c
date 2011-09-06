@@ -9,6 +9,7 @@
 #define SP_EOF 258
 
 #define COMPRESSED_OUT "compressed"
+#define DECOMPRESSED_OUT "decompressed"
 #define HUFFMAN_HEADER 0xdddddddd
 
 void die(const char *msg)
@@ -350,6 +351,10 @@ void get_prefix_strings(char **prefix, struct node *prefix_tree)
 void write_content(unsigned char *content, int content_alloc,
 		struct node *prefix_tree, FILE *infp, FILE *outfp)
 {
+	if (fseek(infp, 0L, SEEK_SET)) {
+		fprintf(stderr, "cannot rewind input file\n");
+		return;
+	}
 	/* Time to replace by prefix string... */
 	int i, k, n;
 	int byte_idx;
@@ -365,10 +370,10 @@ void write_content(unsigned char *content, int content_alloc,
 	/* DEBUG: Print prefix strings */
 	prefix_print(prefix, MAXCHARS);
 
+	ch = 0;
 	byte_idx = 0;
 	bit_pos = 7;
-	cur_prefix = NULL;
-	memset(content, 0, sizeof(content));
+	memset(content, 0, content_alloc * sizeof(unsigned char));
 
 	while (fread(&ch, 1, 1, infp) == 1) {
 		cur_prefix = prefix[ch];
@@ -383,16 +388,17 @@ void write_content(unsigned char *content, int content_alloc,
 
 				byte_idx = 0;
 				bit_pos = 7;
-				memset(content, 0, sizeof(content));
+				memset(content, 0, content_alloc * sizeof(unsigned char));
 			}
 
-			n = cur_prefix[i] == '0' ? 0 : 1;
-			content[byte_idx] |= (n << bit_pos);
+			if (cur_prefix[i] == '1')
+				content[byte_idx] |= (1 << bit_pos);
 			bit_pos--;
 
 			if (bit_pos < 0) {
 				bit_pos = 7;
 				byte_idx++;
+				printf("just parsed %d\n", content[byte_idx-1]);
 			}
 		}
 	}
@@ -405,7 +411,7 @@ void write_content(unsigned char *content, int content_alloc,
 		}
 		byte_idx = 0;
 		bit_pos = 7;
-		memset(content, 0, sizeof(content));
+		memset(content, 0, content_alloc * sizeof(unsigned char));
 	}
 
 	/* Write remaining stuff + special EOF string */
@@ -419,22 +425,25 @@ void write_content(unsigned char *content, int content_alloc,
 			}
 			byte_idx = 0;
 			bit_pos = 7;
-			memset(content, 0, sizeof(content));
+			memset(content, 0, content_alloc * sizeof(unsigned char));
 		}
 
-		n = cur_prefix[i] == '0' ? 0 : 1;
-		content[byte_idx] |= (n << bit_pos);
+		if (cur_prefix[i] == '1')
+			content[byte_idx] |= (1 << bit_pos);
 		bit_pos--;
 
 		if (bit_pos < 0) {
 			bit_pos = 7;
 			byte_idx++;
+			printf("just parsed %d\n", content[byte_idx-1]);
 		}
 	}
 
 	/* Write out */
 	if (byte_idx != 0 || bit_pos != 7) {
 		int write_out = byte_idx + 1;
+		if (bit_pos != 7)
+			printf("just parsed %d\n", content[write_out-1]);
 		if (fwrite(content, 1, write_out, outfp) != write_out) {
 			fprintf(stderr, "writing of contents failed\n");
 			goto cleanup;
@@ -455,7 +464,7 @@ void huffman_encode(int *freq, int range, struct node **heap,
 	int i;
 	int ret;
 	int heap_nr;
-	FILE *outfp;
+	FILE *outfp = NULL;
 	char ch;
 
 	char *hdr;
@@ -536,6 +545,7 @@ void encode_file(const char *file)
 void decode_file(const char *file)
 {
 	FILE *fp;
+	FILE *outfp;
 	unsigned char buf[BUFSZ];
 	size_t bread;
 
@@ -551,6 +561,12 @@ void decode_file(const char *file)
 	fp = fopen(file, "r");
 	if (!fp)
 		die("cannot open file for decoding\n");
+
+	outfp = fopen(DECOMPRESSED_OUT, "w");
+	if (!outfp) {
+		fprintf(stderr, "cannot open decompressed file for writing\n");
+		goto cleanup;
+	}
 
 	bread = fread(&ch, 4, 1, fp);
 	if (bread != 1) {
@@ -599,11 +615,48 @@ void decode_file(const char *file)
 	/* Print the prefix strings */
 	prefix_print(prefix, MAXCHARS);
 
+	/* Time for the real job... */
+	unsigned char rch = 0;
+	int bit_pos;
+	int cur_bit;
+	struct node *prefix_tree = heap[0];
+
+	bread = 0;
+	while (fread(&rch, 1, 1, fp) == 1) {
+		printf("just parsed %d\n", rch);
+		bit_pos = 7;
+		while (bit_pos >= 0) {
+			cur_bit = (rch >> bit_pos) & 1;
+			printf("%c", cur_bit == 0 ? '0' : '1');
+			if (cur_bit == 0)
+				prefix_tree = prefix_tree->left;
+			else
+				prefix_tree = prefix_tree->right;
+
+			assert(prefix_tree != NULL);
+
+			if (prefix_tree->ch != -1) {
+				printf("\n");
+				if (prefix_tree->ch == SP_EOF) {
+					goto cleanup;
+				}
+
+				unsigned char outch = prefix_tree->ch;
+				fwrite(&outch, 1, 1, outfp);
+				prefix_tree = heap[0];
+			}
+
+			bit_pos--;
+		}
+	}
+
 cleanup:
 	for (i = 0; i < MAXCHARS; i++) {
 		if (prefix[i])
 			free(prefix[i]);
 	}
+	if (outfp)
+		fclose(outfp);
 	fclose(fp);
 	heap_free(heap, nr);
 }
