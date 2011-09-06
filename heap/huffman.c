@@ -5,7 +5,8 @@
 
 #define BUFSZ 4096
 #define S_BUFSZ 256
-#define MAXCHARS 256
+#define MAXCHARS 264
+#define SP_EOF 258
 
 void die(const char *msg)
 {
@@ -44,13 +45,13 @@ char *xstrdup(const char *s)
 }
 
 struct node {
-	char ch;
+	int ch;
 	int freq;
 	struct node *left;
 	struct node *right;
 };
 
-struct node *node_new(char ch, int freq)
+struct node *node_new(int ch, int freq)
 {
 	struct node *node = xcalloc(1, sizeof(struct node));
 	node->ch = ch;
@@ -236,27 +237,26 @@ int prepare_header(char *hdr, int *hdr_nr, int *hdr_alloc, struct node **heap,
 	/*
 	 * Then, write out the heap information as below:
 	 *
-	 * letter\0\0\0frequency
+	 * letterfrequency
 	 *
-	 * where "letter" is a 1 byte character, the 3 '\0' bytes are for padding,
-	 * and "frequency" is a 4 byte integer
+	 * where "letter" and "frequency" are both 4 byte integers
 	 *
 	 * Given the same heap building algorithm, we are guaranteed to have the same
 	 * prefix tree built.
 	 */
 
 	for (i = 0; i < heap_nr; i++) {
-		if (write_to_header(hdr, hdr_nr, hdr_alloc, &(heap[i]->ch), 1)) {
+		if (write_to_header(hdr, hdr_nr, hdr_alloc, &(heap[i]->ch), 4)) {
 			fprintf(stderr, "writing of heap failed (char)\n");
 			return -1;
 		}
 
-		int k;
+		/*int k;
 		buf[0] = buf[1] = buf[2] = '\0';
 		if (write_to_header(hdr, hdr_nr, hdr_alloc, buf, 3)) {
 			fprintf(stderr, "writing of heap failed (padding)\n");
 			return -1;
-		}
+		}*/
 
 		if (write_to_header(hdr, hdr_nr, hdr_alloc, &(heap[i]->freq), 4)) {
 			fprintf(stderr, "writing of heap failed (int)\n");
@@ -321,23 +321,114 @@ void get_prefix_strings(char **prefix, struct node *prefix_tree)
 	build_prefixes(prefix, prefix_tree, buf, 0, 0);
 }
 
-int prepare_content(char *content, int *content_nr, int *content_alloc,
+void write_content(unsigned char *content, int content_alloc,
 		struct node *prefix_tree, FILE *infp)
 {
 	if (fseek(infp, 0L, SEEK_SET)) {
 		fprintf(stderr, "could not rewind input file\n");
-		return -1;
+		return;
 	}
 
 	/* Time to replace by prefix string... */
+	int i, k, n;
+	int byte_idx;
+	int bit_pos;
+	int cur_prefix_len;
+	unsigned char ch;
+	char *cur_prefix;
 	char *prefix[MAXCHARS];
+	FILE *outfp;
+
+	outfp = fopen("compressed", "w");
+	if (!outfp)
+		return;
+
 	memset(prefix, 0, sizeof(prefix));
 	get_prefix_strings(prefix, prefix_tree);
 
+	byte_idx = 0;
+	bit_pos = 7;
+	cur_prefix = NULL;
+	memset(content, 0, sizeof(content));
+
+	while (fread(&ch, 1, 1, infp) == 1) {
+		cur_prefix = prefix[ch];
+		cur_prefix_len = strlen(cur_prefix);
+
+		for (i = 0; i < cur_prefix_len; i++) {
+			if (byte_idx >= content_alloc) {
+				if (fwrite(content, 1, content_alloc, outfp) != content_alloc) {
+					fprintf(stderr, "writing of content failed\n");
+					goto cleanup;
+				}
+
+				byte_idx = 0;
+				bit_pos = 7;
+				memset(content, 0, sizeof(content));
+			}
+
+			n = cur_prefix[i] == '0' ? 0 : 1;
+			content[byte_idx] |= (n << bit_pos);
+			bit_pos--;
+
+			if (bit_pos < 0) {
+				bit_pos = 7;
+				byte_idx++;
+			}
+		}
+	}
+
+	/* No more input. Flush if buffer is full */
+	if (byte_idx >= content_alloc) {
+		if (fwrite(content, 1, content_alloc, outfp) != content_alloc) {
+			fprintf(stderr, "writing of content failed\n");
+			goto cleanup;
+		}
+		byte_idx = 0;
+		bit_pos = 7;
+		memset(content, 0, sizeof(content));
+	}
+
+	/* Write remaining stuff + special EOF string */
+	cur_prefix = prefix[SP_EOF];
+	cur_prefix_len = strlen(cur_prefix);
+	for (i = 0; i < cur_prefix_len; i++) {
+		if (byte_idx >= content_alloc) {
+			if (fwrite(content, 1, content_alloc, outfp) != content_alloc) {
+				fprintf(stderr, "writing of content failed\n");
+				goto cleanup;
+			}
+			byte_idx = 0;
+			bit_pos = 7;
+			memset(content, 0, sizeof(content));
+		}
+
+		n = cur_prefix[i] == '0' ? 0 : 1;
+		content[byte_idx] |= (n << bit_pos);
+		bit_pos--;
+
+		if (bit_pos < 0) {
+			bit_pos = 7;
+			byte_idx++;
+		}
+	}
+
+	/* Write out */
+	if (byte_idx != 0 || bit_pos != 7) {
+		int write_out = byte_idx + 1;
+		if (fwrite(content, 1, write_out, outfp) != write_out) {
+			fprintf(stderr, "writing of contents failed\n");
+			goto cleanup;
+		}
+	}
+
+cleanup:
 	for (i = 0; i < MAXCHARS; i++) {
 		if (prefix[i])
 			free(prefix[i]);
 	}
+
+	fclose(outfp);
 }
 
 void huffman_encode(int *freq, int range, struct node **heap,
@@ -353,16 +444,29 @@ void huffman_encode(int *freq, int range, struct node **heap,
 	char *hdr;
 	int hdr_alloc, hdr_nr;
 
-	char *content;
-	int content_alloc, content_nr;
+	unsigned char content[BUFSZ];
+	struct node *node;
 
 	heap_nr = 0;
 	for (i = 0; i < range; i++) {
 		if (!freq[i])
 			continue;
 
-		struct node *node = node_new(i, freq[i]);
+		node = node_new(i, freq[i]);
 		heap_insert(heap, node, &heap_nr, heap_sz);
+	}
+
+	/* Insert special EOF string into heap */
+	node = node_new(SP_EOF, 1);
+	heap_insert(heap, node, &heap_nr, heap_sz);
+
+	for (i = 0; i < heap_nr; i++) {
+		printf("char = %d (", heap[i]->ch);
+		if (heap[i]->ch > 127)
+			printf("%s", "not viewable");
+		else
+			printf("%c", heap[i]->ch);
+		printf("), freq = %d\n", heap[i]->freq);
 	}
 
 	/* Allocate header for write out later */
@@ -374,17 +478,6 @@ void huffman_encode(int *freq, int range, struct node **heap,
 	if (ret)
 		goto cleanup;
 
-	/* Time for the fun: Build prefix tree and compress */
-	build_prefix_tree(heap, &heap_nr, heap_sz);
-
-	content_alloc = BUFSZ;
-	content_nr = 0;
-	content = xcalloc(content_alloc, sizeof(char));
-
-	ret = prepare_content(content, &content_nr, &content_alloc, heap[0], infp);
-	if (ret)
-		goto cleanup;
-
 	/* Actually write out the header */
 	fp = fopen("header", "w");
 	if (!fp)
@@ -393,13 +486,14 @@ void huffman_encode(int *freq, int range, struct node **heap,
 	if (fwrite(hdr, hdr_nr, 1, fp) != 1)
 		fprintf(stderr, "error writing out header\n");
 
-	/* Write content... */
+	/* Time for the fun: Build prefix tree and compress */
+	build_prefix_tree(heap, &heap_nr, heap_sz);
+	write_content(content, BUFSZ, heap[0], fp);
 
 cleanup:
 	if (fp)
 		fclose(fp);
 	free(hdr);
-	free(content);
 	heap_free(heap, heap_nr);
 }
 
@@ -432,7 +526,7 @@ void encode_file(const char *file)
 void decode_file(const char *file)
 {
 	FILE *fp;
-	char buf[BUFSZ];
+	unsigned char buf[BUFSZ];
 	size_t bread;
 
 	struct node *heap[MAXCHARS];
@@ -445,7 +539,7 @@ void decode_file(const char *file)
 
 	bread = fread(buf, 1, 4, fp);
 	if (bread != 4) {
-		fprintf(stderr, "invalid header\n");
+		fprintf(stderr, "invalid header: start\n");
 		goto cleanup;
 	}
 
@@ -456,7 +550,7 @@ void decode_file(const char *file)
 	}
 
 	while (1) {
-		char ch;
+		int ch;
 		int freq;
 		struct node *node;
 
@@ -470,12 +564,8 @@ void decode_file(const char *file)
 		if (buf[0] == 'H' && buf[1] == 'H' && buf[2] == 'H' && buf[3] == 'H')
 			break;
 
-		if (buf[1] != '\0' || buf[2] != '\0' || buf[3] != '\0') {
-			fprintf(stderr, "invalid padding between character and frequency\n");
-			goto cleanup;
-		}
-
-		ch = buf[0];
+		/* Letter Frequency pair */
+		ch = (buf[3] << 3) + (buf[2] << 2) + (buf[1] << 1) + buf[0];
 		bread = fread(&freq, 4, 1, fp);
 		if (bread != 1) {
 			fprintf(stderr, "invalid header\n");
@@ -488,8 +578,14 @@ void decode_file(const char *file)
 
 	/* Print header info */
 	int i;
-	for (i = 0; i < nr; i++)
-		printf("char = %c, freq = %d\n", heap[i]->ch, heap[i]->freq);
+	for (i = 0; i < nr; i++) {
+		printf("char = %d (", heap[i]->ch);
+		if (heap[i]->ch > 127)
+			printf("cant show");
+		else
+			printf("%c", heap[i]->ch);
+		printf("), freq = %d\n", heap[i]->freq);
+	}
 
 cleanup:
 	fclose(fp);
