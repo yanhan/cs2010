@@ -208,6 +208,21 @@ void header_print(struct node **heap, int nr)
 	}
 }
 
+void prefix_print(char **prefix, int nr)
+{
+	int i;
+	for (i = 0; i < nr; i++) {
+		if (!prefix[i])
+			continue;
+		printf("char %d (", i);
+		if (i > 127)
+			printf("not viewable");
+		else
+			printf("%c", i);
+		printf("), prefix = \"%s\"\n", prefix[i]);
+	}
+}
+
 int write_to_header(char *hdr, int *hdr_nr, int *hdr_alloc,
 		void *buf, int sz)
 {
@@ -353,6 +368,9 @@ void write_content(unsigned char *content, int content_alloc,
 
 	memset(prefix, 0, sizeof(prefix));
 	get_prefix_strings(prefix, prefix_tree);
+
+	/* DEBUG: Print prefix strings */
+	prefix_print(prefix, MAXCHARS);
 
 	byte_idx = 0;
 	bit_pos = 7;
