@@ -22,6 +22,7 @@ struct opt {
 	int debug;
 	int op;
 	const char *src;
+	const char *dest;
 } opt;
 
 void usage(void)
@@ -304,13 +305,12 @@ cleanup:
 }
 
 void huffman_encode(int *freq, int range, struct node **heap,
-		int heap_sz, FILE *infp)
+		int heap_sz, FILE *infp, FILE *outfp)
 {
 	assert(range <= heap_sz && infp != NULL);
 	int i;
 	int ret;
 	int heap_nr;
-	FILE *outfp = NULL;
 	char ch;
 
 	char *hdr;
@@ -345,10 +345,6 @@ void huffman_encode(int *freq, int range, struct node **heap,
 		goto cleanup;
 
 	/* Actually write out the header */
-	outfp = fopen(COMPRESSED_OUT, "w");
-	if (!outfp)
-		goto cleanup;
-
 	if (fwrite(hdr, hdr_nr, 1, outfp) != 1)
 		fprintf(stderr, "error writing out header\n");
 
@@ -357,17 +353,16 @@ void huffman_encode(int *freq, int range, struct node **heap,
 	write_content(content, BUFSZ, heap[0], infp, outfp);
 
 cleanup:
-	if (outfp)
-		fclose(outfp);
 	free(hdr);
 	heap_free(heap, heap_nr);
 }
 
-void encode_file(const char *file)
+void encode_file(const char *src, const char *dest)
 {
 	char buf[BUFSZ];
 	int freq[MAXCHARS];
-	FILE *fp;
+	FILE *infp;
+	FILE *outfp;
 	ssize_t i;
 	ssize_t bread, bwritten;
 	struct node *heap[MAXCHARS];
@@ -375,21 +370,28 @@ void encode_file(const char *file)
 	memset(buf, 0, sizeof(buf));
 	memset(freq, 0, sizeof(freq));
 
-	fp = fopen(file, "r");
-	if (!fp)
-		die("reading of file failed");
+	infp = fopen(src, "r");
+	if (!infp)
+		die("opening of file for reading failed");
 
-	while (bread = fread(buf, sizeof(char), BUFSZ, fp)) {
+	outfp = fopen(dest, "w");
+	if (!outfp) {
+		fclose(infp);
+		die("opening of file for writing failed");
+	}
+
+	while (bread = fread(buf, sizeof(char), BUFSZ, infp)) {
 		for (i = 0; i < bread; i++)
 			freq[buf[i]]++;
 	}
 
 	memset(heap, 0, sizeof(struct node *) * MAXCHARS);
-	huffman_encode(freq, MAXCHARS, heap, MAXCHARS, fp);
-	fclose(fp);
+	huffman_encode(freq, MAXCHARS, heap, MAXCHARS, infp, outfp);
+	fclose(infp);
+	fclose(outfp);
 }
 
-void decode_file(const char *file)
+void decode_file(const char *src, const char *dest)
 {
 	FILE *fp;
 	FILE *outfp;
@@ -405,11 +407,11 @@ void decode_file(const char *file)
 	char *prefix[MAXCHARS];
 
 	memset(heap, 0, sizeof(heap));
-	fp = fopen(file, "r");
+	fp = fopen(src, "r");
 	if (!fp)
 		die("cannot open file for decoding\n");
 
-	outfp = fopen(DECOMPRESSED_OUT, "w");
+	outfp = fopen(dest, "w");
 	if (!outfp) {
 		fprintf(stderr, "cannot open decompressed file for writing\n");
 		goto cleanup;
@@ -517,18 +519,31 @@ cleanup:
 	heap_free(heap, nr);
 }
 
-int parse_op(int op, int n, int argc, char *argv[])
+int parse_op(int op, int *n, int argc, char *argv[])
 {
+	int i;
 	assert(op == OP_ENCODE || op == OP_DECODE);
 	if (opt.op != OP_UNKNOWN)
 		return error("only 1 of --encode and --decode is accepted.\n");
 
 	opt.op = op;
-	if (n >= argc)
+	i = *n;
+	if (i >= argc)
 		return error("no source file\n");
 	else
-		opt.src = argv[n];
+		opt.src = argv[i];
 
+	if (i + 1 < argc && argv[i + 1][0] != '-') {
+		i++;
+		opt.dest = argv[i];
+	} else {
+		if (op == OP_ENCODE)
+			opt.dest = COMPRESSED_OUT;
+		else
+			opt.dest = DECOMPRESSED_OUT;
+	}
+
+	*n = i;
 	return 0;
 }
 
@@ -540,11 +555,11 @@ int parse_args(int argc, char *argv[])
 			opt.debug = 1;
 		} else if (!strcmp(argv[i], "--encode")) {
 			i++;
-			if (parse_op(OP_ENCODE, i, argc, argv))
+			if (parse_op(OP_ENCODE, &i, argc, argv))
 				return -1;
 		} else if (!strcmp(argv[i], "--decode")) {
 			i++;
-			if (parse_op(OP_DECODE, i, argc, argv))
+			if (parse_op(OP_DECODE, &i, argc, argv))
 				return -1;
 		}
 	}
@@ -559,8 +574,8 @@ int main(int argc, char *argv[])
 		usage();
 
 	if (opt.op == OP_ENCODE)
-		encode_file(opt.src);
+		encode_file(opt.src, opt.dest);
 	else
-		decode_file(opt.src);
+		decode_file(opt.src, opt.dest);
 	return 0;
 }
