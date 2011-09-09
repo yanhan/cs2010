@@ -27,7 +27,8 @@ struct opt {
 
 void usage(void)
 {
-	fprintf(stderr, "huffman [--encode] [--decode] <file>\n");
+	fprintf(stderr, "usage: huffman [--debug] <--encode | --decode> ");
+	fprintf(stderr, "<infile> <outfile>\n");
 	exit(1);
 }
 
@@ -566,12 +567,15 @@ int parse_args(int argc, char *argv[])
 		}
 	}
 
+	if (!opt.src || !opt.dest)
+		return -1;
+
 	return 0;
 }
 
 int main(int argc, char *argv[])
 {
-	opt.op = OP_UNKNOWN;
+	memset(&opt, 0, sizeof(opt));
 	if (parse_args(argc, argv))
 		usage();
 
