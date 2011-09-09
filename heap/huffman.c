@@ -14,10 +14,26 @@
 #define DECOMPRESSED_OUT "decompressed"
 #define HUFFMAN_HEADER 0xdddddddd
 
+enum OP_HUFFMAN { OP_UNKNOWN = 0, OP_ENCODE = 1, OP_DECODE };
+enum { OPT_DEBUG = 1000 };
+
+/* Globals */
+struct opt {
+	int debug;
+	int op;
+	const char *src;
+} opt;
+
 void usage(void)
 {
 	fprintf(stderr, "huffman [--encode] [--decode] <file>\n");
 	exit(1);
+}
+
+int error(const char *msg)
+{
+	fprintf(stderr, msg);
+	return -1;
 }
 
 void header_print(struct node **heap, int nr)
@@ -486,16 +502,50 @@ cleanup:
 	heap_free(heap, nr);
 }
 
+int parse_op(int op, int n, int argc, char *argv[])
+{
+	assert(op == OP_ENCODE || op == OP_DECODE);
+	if (opt.op != OP_UNKNOWN)
+		return error("only 1 of --encode and --decode is accepted.\n");
+
+	opt.op = op;
+	if (n >= argc)
+		return error("no source file\n");
+	else
+		opt.src = argv[n];
+
+	return 0;
+}
+
+int parse_args(int argc, char *argv[])
+{
+	int i;
+	for (i = 0; i < argc; i++) {
+		if (!strcmp(argv[i], "--debug")) {
+			opt.debug = 1;
+		} else if (!strcmp(argv[i], "--encode")) {
+			i++;
+			if (parse_op(OP_ENCODE, i, argc, argv))
+				return -1;
+		} else if (!strcmp(argv[i], "--decode")) {
+			i++;
+			if (parse_op(OP_DECODE, i, argc, argv))
+				return -1;
+		}
+	}
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
-	if (argc != 3)
+	opt.op = OP_UNKNOWN;
+	if (parse_args(argc, argv))
 		usage();
 
-	if (!strcmp(argv[1], "--encode"))
-		encode_file(argv[2]);
-	else if (!strcmp(argv[1], "--decode"))
-		decode_file(argv[2]);
+	if (opt.op == OP_ENCODE)
+		encode_file(opt.src);
 	else
-		usage();
+		decode_file(opt.src);
 	return 0;
 }
