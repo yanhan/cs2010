@@ -209,7 +209,8 @@ void write_content(unsigned char *content, int content_alloc,
 	get_prefix_strings(prefix, prefix_tree);
 
 	/* DEBUG: Print prefix strings */
-	prefix_print(prefix, MAXCHARS);
+	if (opt.debug)
+		prefix_print(prefix, MAXCHARS);
 
 	ch = 0;
 	byte_idx = 0;
@@ -239,7 +240,8 @@ void write_content(unsigned char *content, int content_alloc,
 			if (bit_pos < 0) {
 				bit_pos = 7;
 				byte_idx++;
-				printf("just parsed %d\n", content[byte_idx-1]);
+				if (opt.debug)
+					printf("just parsed %d\n", content[byte_idx-1]);
 			}
 		}
 	}
@@ -276,15 +278,18 @@ void write_content(unsigned char *content, int content_alloc,
 		if (bit_pos < 0) {
 			bit_pos = 7;
 			byte_idx++;
-			printf("just parsed %d\n", content[byte_idx-1]);
+			if (opt.debug)
+				printf("just parsed %d\n", content[byte_idx-1]);
 		}
 	}
 
 	/* Write out */
 	if (byte_idx != 0 || bit_pos != 7) {
 		int write_out = byte_idx + 1;
-		if (bit_pos != 7)
-			printf("just parsed %d\n", content[write_out-1]);
+		if (bit_pos != 7) {
+			if (opt.debug)
+				printf("just parsed %d\n", content[write_out-1]);
+		}
 		if (fwrite(content, 1, write_out, outfp) != write_out) {
 			fprintf(stderr, "writing of contents failed\n");
 			goto cleanup;
@@ -327,7 +332,8 @@ void huffman_encode(int *freq, int range, struct node **heap,
 	}
 
 	/* Debug: print header */
-	header_print(heap, heap_nr);
+	if (opt.debug)
+		header_print(heap, heap_nr);
 
 	/* Allocate header for write out later */
 	hdr_alloc = BUFSZ;
@@ -447,14 +453,16 @@ void decode_file(const char *file)
 		heap[nr++] = node;
 	}
 
-	header_print(heap, nr);
+	if (opt.debug)
+		header_print(heap, nr);
 	build_prefix_tree(heap, &nr, MAXCHARS);
 
 	memset(prefix, 0, sizeof(prefix));
 	get_prefix_strings(prefix, heap[0]);
 
-	/* Print the prefix strings */
-	prefix_print(prefix, MAXCHARS);
+	/* DEBUG: Print the prefix strings */
+	if (opt.debug)
+		prefix_print(prefix, MAXCHARS);
 
 	/* Time for the real job... */
 	unsigned char rch = 0;
@@ -464,11 +472,16 @@ void decode_file(const char *file)
 
 	bread = 0;
 	while (fread(&rch, 1, 1, fp) == 1) {
-		printf("just parsed %d\n", rch);
+		if (opt.debug)
+			printf("just parsed %d\n", rch);
+
 		bit_pos = 7;
 		while (bit_pos >= 0) {
 			cur_bit = (rch >> bit_pos) & 1;
-			printf("%c", cur_bit == 0 ? '0' : '1');
+
+			if (opt.debug)
+				printf("%c", cur_bit == 0 ? '0' : '1');
+
 			if (cur_bit == 0)
 				prefix_tree = prefix_tree->left;
 			else
@@ -477,7 +490,9 @@ void decode_file(const char *file)
 			assert(prefix_tree != NULL);
 
 			if (prefix_tree->ch != -1) {
-				printf("\n");
+				if (opt.debug)
+					printf("\n");
+
 				if (prefix_tree->ch == SP_EOF) {
 					goto cleanup;
 				}
