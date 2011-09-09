@@ -372,12 +372,12 @@ void encode_file(const char *src, const char *dest)
 
 	infp = fopen(src, "r");
 	if (!infp)
-		die("opening of file for reading failed");
+		die("opening of file \"%s\" for reading failed\n", src);
 
 	outfp = fopen(dest, "w");
 	if (!outfp) {
 		fclose(infp);
-		die("opening of file for writing failed");
+		die("opening of file \"%s\" for writing failed\n", dest);
 	}
 
 	while (bread = fread(buf, sizeof(char), BUFSZ, infp)) {
@@ -393,8 +393,8 @@ void encode_file(const char *src, const char *dest)
 
 void decode_file(const char *src, const char *dest)
 {
-	FILE *fp;
-	FILE *outfp;
+	FILE *fp = NULL;
+	FILE *outfp = NULL;
 	unsigned char buf[BUFSZ];
 	size_t bread;
 
@@ -409,11 +409,12 @@ void decode_file(const char *src, const char *dest)
 	memset(heap, 0, sizeof(heap));
 	fp = fopen(src, "r");
 	if (!fp)
-		die("cannot open file for decoding\n");
+		die("opening of file \"%s\" for reading failed\n", src);
 
 	outfp = fopen(dest, "w");
 	if (!outfp) {
-		fprintf(stderr, "cannot open decompressed file for writing\n");
+		fprintf(stderr,
+				"opening of file \"%s\" for writing failed\n", dest);
 		goto cleanup;
 	}
 
@@ -513,9 +514,10 @@ cleanup:
 		if (prefix[i])
 			free(prefix[i]);
 	}
+	if (fp)
+		fclose(fp);
 	if (outfp)
 		fclose(outfp);
-	fclose(fp);
 	heap_free(heap, nr);
 }
 
