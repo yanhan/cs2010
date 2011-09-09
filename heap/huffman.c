@@ -5,14 +5,14 @@
 #include "heap.h"
 #include "util.h"
 
-#define BUFSZ 4096
-#define S_BUFSZ 256
+#define BUFSZ    4096
+#define S_BUFSZ  256
 #define MAXCHARS 264
-#define SP_EOF 258
+#define SP_EOF   258
 
-#define COMPRESSED_OUT "compressed"
+#define COMPRESSED_OUT   "compressed"
 #define DECOMPRESSED_OUT "decompressed"
-#define HUFFMAN_HEADER 0xdddddddd
+#define HUFFMAN_HEADER   0xdddddddd
 
 enum OP_HUFFMAN { OP_UNKNOWN = 0, OP_ENCODE = 1, OP_DECODE };
 enum { OPT_DEBUG = 1000 };
@@ -117,8 +117,8 @@ int prepare_header(char *hdr, int *hdr_nr, int *hdr_alloc, struct node **heap,
 	 *
 	 * where "letter" and "frequency" are both 4 byte integers
 	 *
-	 * Given the same heap building algorithm, we are guaranteed to have the same
-	 * prefix tree built.
+	 * Given the same heap building algorithm, we are guaranteed to have
+	 * the same prefix tree built.
 	 */
 
 	for (i = 0; i < heap_nr; i++) {
