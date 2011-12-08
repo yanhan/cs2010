@@ -1,0 +1,1 @@
+To run and submit the Java codes for the UVa problems, please rename the corresponding Java file to main.java
