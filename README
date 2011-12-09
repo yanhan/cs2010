@@ -17,6 +17,9 @@ where I was a lab TA.
 Lab sessions take up 1 hour per week and are more of a "mini lecture" style than
 "get your hands dirty" style.
 
+My friend and colleague, Shubham Goyal, has kindly provided his solutions to
+some UVa Online Judge problems we discussed in our lab sessions.
+
 
 RATIONALE
 --------------------------------------------------------------------------------
@@ -59,6 +62,9 @@ SO WHAT'S IN HERE
 --------------------------------------------------------------------------------
 
 As stated above, slides + code + notes of what I cover in lab sessions
+
+In addition, solutions to some of the UVa Online Judge problems discussed
+during our lab sessions can be found in the "uva" folder.
 
 Many students specifically request more code for algorithms covered in the
 module. So here they are!
